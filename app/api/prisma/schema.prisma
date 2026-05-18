@@ -1,1 +1,1228 @@
+generator client {
+  provider = "prisma-client-js"
+}
 
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+  CONTRA
+}
+
+enum AccountCategory {
+  CURRENT_ASSET
+  FIXED_ASSET
+  NON_CURRENT_ASSET
+  CURRENT_LIABILITY
+  LONG_TERM_LIABILITY
+  EQUITY
+  OPERATING_REVENUE
+  NON_OPERATING_REVENUE
+  OPERATING_EXPENSE
+  NON_OPERATING_EXPENSE
+}
+
+enum NormalBalance {
+  DEBIT
+  CREDIT
+}
+
+enum JournalEntryStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  POSTED
+  REVERSED
+  VOID
+}
+
+enum JournalEntryType {
+  STANDARD
+  ADJUSTING
+  CLOSING
+  REVERSING
+  RECURRING
+  OPENING
+}
+
+enum SourceType {
+  MANUAL
+  INVOICE
+  RECEIPT
+  PAYMENT
+  PAYROLL
+  DEPRECIATION
+  BANK_RECONCILIATION
+  AUTO
+}
+
+enum StudentStatus {
+  ACTIVE
+  GRADUATED
+  WITHDRAWN
+  SUSPENDED
+  TRANSFERRED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  MADA
+  CREDIT_CARD
+  SADAD
+  CHEQUE
+  ONLINE
+}
+
+enum PaymentStatus {
+  RECEIVED
+  DEPOSITED
+  BOUNCED
+  CANCELLED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+  SCHOLARSHIP
+  SIBLING
+  STAFF
+  EARLY_PAYMENT
+}
+
+enum ZatcaSubmissionStatus {
+  PENDING
+  SUBMITTED
+  ACCEPTED
+  REJECTED
+}
+
+enum FeeCategory {
+  TUITION
+  REGISTRATION
+  TRANSPORTATION
+  UNIFORM
+  BOOKS
+  ACTIVITIES
+  MEALS
+  TECHNOLOGY
+  OTHER
+}
+
+enum PaymentFrequency {
+  ANNUAL
+  SEMI_ANNUAL
+  QUARTERLY
+  MONTHLY
+  ONE_TIME
+}
+
+enum VendorType {
+  SUPPLIER
+  CONTRACTOR
+  SERVICE_PROVIDER
+  UTILITY
+  GOVERNMENT
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  TEMPORARY
+}
+
+enum PayrollPaymentStatus {
+  PENDING
+  PAID
+  HELD
+}
+
+enum BankAccountType {
+  CURRENT
+  SAVINGS
+  DEPOSIT
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  TRANSFER
+  CHARGE
+  INTEREST
+}
+
+enum ReconciliationStatus {
+  UNRECONCILED
+  RECONCILED
+  EXCEPTION
+}
+
+enum ReconciliationProcessStatus {
+  IN_PROGRESS
+  COMPLETED
+  APPROVED
+}
+
+enum BudgetType {
+  ANNUAL
+  QUARTERLY
+  MONTHLY
+  PROJECT
+}
+
+enum BudgetStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REVISED
+  CLOSED
+}
+
+enum AssetStatus {
+  ACTIVE
+  DISPOSED
+  FULLY_DEPRECIATED
+  UNDER_MAINTENANCE
+}
+
+enum DepreciationMethod {
+  STRAIGHT_LINE
+  DECLINING_BALANCE
+}
+
+enum AssetCategory {
+  BUILDING
+  FURNITURE
+  EQUIPMENT
+  VEHICLE
+  COMPUTER
+  SOFTWARE
+  LAND
+  OTHER
+}
+
+enum FiscalYearStatus {
+  OPEN
+  CLOSED
+  LOCKED
+}
+
+enum FiscalPeriodStatus {
+  OPEN
+  CLOSED
+  LOCKED
+}
+
+enum SchoolType {
+  PRIVATE
+  INTERNATIONAL
+  GOVERNMENT
+}
+
+enum Curriculum {
+  SAUDI
+  AMERICAN
+  BRITISH
+  IB
+  MIXED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIAL
+  SUSPENDED
+  CANCELLED
+}
+
+enum Language {
+  AR
+  EN
+}
+
+// ============================================================================
+// SCHOOL (Tenant)
+// ============================================================================
+
+model School {
+  id                  String             @id @default(uuid())
+  school_code         String             @unique
+  school_name_ar      String
+  school_name_en      String
+  cr_number           String?
+  vat_number          String?
+  license_number      String? // MOE license
+  national_address    Json?
+  address             String?
+  city                String?
+  region              String?
+  phone               String?
+  email               String?
+  website             String?
+  logo_url            String?
+  school_type         SchoolType         @default(PRIVATE)
+  curriculum          Curriculum         @default(SAUDI)
+  academic_levels     Json?              // ["KG", "Elementary", "Middle", "High"]
+  subscription_plan   String?
+  subscription_status SubscriptionStatus @default(TRIAL)
+  settings            Json?
+  zatca_settings      Json?
+  is_active           Boolean            @default(true)
+  created_at          DateTime           @default(now())
+  updated_at          DateTime           @updatedAt
+
+  // Relations
+  users               User[]
+  chart_of_accounts   ChartOfAccount[]
+  fiscal_years        FiscalYear[]
+  journal_entries     JournalEntry[]
+  fee_structures      FeeStructure[]
+  student_accounts    StudentAccount[]
+  bank_accounts       BankAccount[]
+  budget_headers      Budget[]
+  employees           Employee[]
+  vendors             Vendor[]
+  fixed_assets        FixedAsset[]
+  academic_years      AcademicYear[]
+  cost_centers        CostCenter[]
+
+  @@map("schools")
+}
+
+// ============================================================================
+// USERS & AUTHENTICATION
+// ============================================================================
+
+model Role {
+  id           String   @id @default(uuid())
+  role_name_ar String
+  role_name_en String
+  permissions  Json     @default("[]")
+  is_system    Boolean  @default(false)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  users        User[]   @relation("UserRoles")
+
+  @@map("roles")
+}
+
+model User {
+  id                String    @id @default(uuid())
+  username          String    @unique
+  email             String    @unique
+  password_hash     String
+  name_ar           String
+  name_en           String
+  phone             String?
+  role_id           String
+  role              Role      @relation("UserRoles", fields: [role_id], references: [id])
+  school_id         String
+  school            School    @relation(fields: [school_id], references: [id])
+  is_active         Boolean   @default(true)
+  last_login        DateTime?
+  two_factor_enabled Boolean  @default(false)
+  two_factor_secret String?
+  language_preference Language @default(AR)
+  permissions_override Json?
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  deleted_at        DateTime?
+
+  // Relations
+  created_journal_entries   JournalEntry[] @relation("CreatedBy")
+  approved_journal_entries  JournalEntry[] @relation("ApprovedBy")
+  posted_journal_entries    JournalEntry[] @relation("PostedBy")
+  payment_receipts          PaymentReceipt[]
+  bank_reconciliations      BankReconciliation[] @relation("ReconciledBy")
+  audit_logs                AuditLog[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id           String   @id @default(uuid())
+  user_id      String
+  token        String   @unique
+  expires_at   DateTime
+  created_at   DateTime @default(now())
+  revoked_at   DateTime?
+
+  @@map("refresh_tokens")
+}
+
+// ============================================================================
+// CHART OF ACCOUNTS
+// ============================================================================
+
+model ChartOfAccount {
+  id                String         @id @default(uuid())
+  account_code      String         @unique
+  account_name_ar   String
+  account_name_en   String
+  account_type      AccountType
+  account_category  AccountCategory?
+  parent_account_id String?
+  parent_account    ChartOfAccount?  @relation("AccountHierarchy", fields: [parent_account_id], references: [id])
+  child_accounts    ChartOfAccount[] @relation("AccountHierarchy")
+  level             Int            @default(0)
+  is_active         Boolean        @default(true)
+  is_system_account Boolean        @default(false)
+  is_postable       Boolean        @default(true)
+  normal_balance    NormalBalance
+  opening_balance   Decimal        @db.Decimal(18, 2) @default(0)
+  current_balance   Decimal        @db.Decimal(18, 2) @default(0)
+  currency_code     String         @default("SAR")
+  cost_center_id    String?
+  cost_center       CostCenter?    @relation(fields: [cost_center_id], references: [id])
+  notes_ar          String?
+  notes_en          String?
+  school_id         String
+  school            School         @relation(fields: [school_id], references: [id])
+  created_at        DateTime       @default(now())
+  updated_at        DateTime       @updatedAt
+  deleted_at        DateTime?
+  created_by_id     String?
+  updated_by_id     String?
+
+  // Relations
+  journal_entry_lines     JournalEntryLine[]
+  student_invoice_lines   StudentInvoiceLine[]
+  vendor_invoice_lines    PurchaseInvoiceLine[]
+  budget_lines            BudgetLine[]
+  fixed_asset_asset_acc   FixedAsset[] @relation("AssetAccount")
+  fixed_asset_depr_acc    FixedAsset[] @relation("DepreciationAccount")
+
+  @@map("chart_of_accounts")
+}
+
+model CostCenter {
+  id          String   @id @default(uuid())
+  code        String
+  name_ar     String
+  name_en     String
+  description String?
+  parent_id   String?
+  is_active   Boolean  @default(true)
+  school_id   String
+  school      School   @relation(fields: [school_id], references: [id])
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  chart_of_accounts ChartOfAccount[]
+  journal_entry_lines JournalEntryLine[]
+  budget_lines      BudgetLine[]
+  employees         Employee[]
+  fixed_assets      FixedAsset[]
+
+  @@map("cost_centers")
+}
+
+// ============================================================================
+// FISCAL YEAR & PERIODS
+// ============================================================================
+
+model FiscalYear {
+  id              String          @id @default(uuid())
+  year_name       String          // "2024" or "1445"
+  start_date      DateTime
+  end_date        DateTime
+  status          FiscalYearStatus @default(OPEN)
+  is_current      Boolean         @default(false)
+  closing_entry_id String?        // ID of the closing journal entry
+  school_id       String
+  school          School          @relation(fields: [school_id], references: [id])
+  created_at      DateTime        @default(now())
+  updated_at      DateTime        @updatedAt
+
+  periods         FiscalPeriod[]
+  journal_entries JournalEntry[]
+  budgets         Budget[]
+
+  @@map("fiscal_years")
+}
+
+model FiscalPeriod {
+  id                   String            @id @default(uuid())
+  fiscal_year_id       String
+  fiscal_year          FiscalYear        @relation(fields: [fiscal_year_id], references: [id])
+  period_number        Int
+  period_name_ar       String
+  period_name_en       String
+  start_date           DateTime
+  end_date             DateTime
+  status               FiscalPeriodStatus @default(OPEN)
+  is_adjustment_period Boolean           @default(false)
+  created_at           DateTime          @default(now())
+  updated_at           DateTime          @updatedAt
+
+  journal_entries      JournalEntry[]
+
+  @@map("fiscal_periods")
+}
+
+// ============================================================================
+// JOURNAL ENTRIES
+// ============================================================================
+
+model JournalEntry {
+  id               String            @id @default(uuid())
+  entry_number     String
+  entry_date       DateTime
+  hijri_date       String?
+  fiscal_year_id   String
+  fiscal_year      FiscalYear        @relation(fields: [fiscal_year_id], references: [id])
+  fiscal_period_id String
+  fiscal_period    FiscalPeriod      @relation(fields: [fiscal_period_id], references: [id])
+  entry_type       JournalEntryType  @default(STANDARD)
+  source_type      SourceType        @default(MANUAL)
+  source_id        String?
+  reference_number String?
+  description_ar   String?
+  description_en   String?
+  total_debit      Decimal           @db.Decimal(18, 2) @default(0)
+  total_credit     Decimal           @db.Decimal(18, 2) @default(0)
+  currency_code    String            @default("SAR")
+  exchange_rate    Decimal           @db.Decimal(10, 6) @default(1)
+  status           JournalEntryStatus @default(DRAFT)
+  approved_by_id   String?
+  approved_by      User?             @relation("ApprovedBy", fields: [approved_by_id], references: [id])
+  approved_at      DateTime?
+  posted_by_id     String?
+  posted_by        User?             @relation("PostedBy", fields: [posted_by_id], references: [id])
+  posted_at        DateTime?
+  reversal_of_id   String?
+  reversed_by_id   String?
+  attachments      Json?
+  tags             Json?
+  school_id        String
+  school           School           @relation(fields: [school_id], references: [id])
+  created_by_id    String
+  created_by       User              @relation("CreatedBy", fields: [created_by_id], references: [id])
+  created_at       DateTime          @default(now())
+  updated_at       DateTime          @updatedAt
+  deleted_at       DateTime?
+
+  lines            JournalEntryLine[]
+
+  @@unique([school_id, entry_number])
+  @@map("journal_entries")
+}
+
+model JournalEntryLine {
+  id                  String        @id @default(uuid())
+  journal_entry_id    String
+  journal_entry       JournalEntry  @relation(fields: [journal_entry_id], references: [id], onDelete: Cascade)
+  line_number         Int
+  account_id          String
+  account             ChartOfAccount @relation(fields: [account_id], references: [id])
+  debit_amount        Decimal       @db.Decimal(18, 2) @default(0)
+  credit_amount       Decimal       @db.Decimal(18, 2) @default(0)
+  description_ar      String?
+  description_en      String?
+  cost_center_id      String?
+  cost_center         CostCenter?   @relation(fields: [cost_center_id], references: [id])
+  project_id          String?
+  currency_code       String        @default("SAR")
+  exchange_rate       Decimal       @db.Decimal(10, 6) @default(1)
+  base_currency_debit Decimal       @db.Decimal(18, 2) @default(0)
+  base_currency_credit Decimal      @db.Decimal(18, 2) @default(0)
+  tax_code            String?
+  tax_amount          Decimal       @db.Decimal(18, 2) @default(0)
+  created_at          DateTime      @default(now())
+  updated_at          DateTime      @updatedAt
+
+  @@map("journal_entry_lines")
+}
+
+// ============================================================================
+// STUDENT FEE MANAGEMENT
+// ============================================================================
+
+model AcademicYear {
+  id           String   @id @default(uuid())
+  year_name_ar String
+  year_name_en String
+  start_date   DateTime
+  end_date     DateTime
+  is_current   Boolean  @default(false)
+  school_id    String
+  school       School   @relation(fields: [school_id], references: [id])
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  terms              AcademicTerm[]
+  fee_structures     FeeStructure[]
+  student_accounts   StudentAccount[]
+  student_invoices   StudentInvoice[]
+
+  @@map("academic_years")
+}
+
+model AcademicTerm {
+  id              String      @id @default(uuid())
+  academic_year_id String
+  academic_year   AcademicYear @relation(fields: [academic_year_id], references: [id])
+  term_name_ar    String
+  term_name_en    String
+  start_date      DateTime
+  end_date        DateTime
+  is_current      Boolean     @default(false)
+  created_at      DateTime    @default(now())
+  updated_at      DateTime    @updatedAt
+
+  student_invoices StudentInvoice[]
+
+  @@map("academic_terms")
+}
+
+model FeeStructure {
+  id                   String           @id @default(uuid())
+  name_ar              String
+  name_en              String
+  academic_year_id     String
+  academic_year        AcademicYear     @relation(fields: [academic_year_id], references: [id])
+  grade_level          String
+  fee_category         FeeCategory
+  amount               Decimal          @db.Decimal(18, 2)
+  vat_applicable       Boolean          @default(true)
+  vat_rate             Decimal          @db.Decimal(5, 2) @default(15)
+  vat_amount           Decimal          @db.Decimal(18, 2) @default(0)
+  total_with_vat       Decimal          @db.Decimal(18, 2)
+  payment_frequency    PaymentFrequency @default(ANNUAL)
+  installment_plan_id  String?
+  discount_applicable  Boolean          @default(true)
+  scholarship_applicable Boolean        @default(true)
+  refundable           Boolean          @default(true)
+  refund_policy        Json?
+  effective_from       DateTime
+  effective_to         DateTime?
+  is_active            Boolean          @default(true)
+  school_id            String
+  school               School           @relation(fields: [school_id], references: [id])
+  created_at           DateTime         @default(now())
+  updated_at           DateTime         @updatedAt
+
+  student_invoice_lines StudentInvoiceLine[]
+
+  @@map("fee_structures")
+}
+
+model StudentAccount {
+  id                String        @id @default(uuid())
+  student_number    String
+  student_name_ar   String
+  student_name_en   String
+  guardian_name_ar  String?
+  guardian_name_en  String?
+  guardian_phone    String?
+  guardian_email    String?
+  national_id       String?
+  iqama_number      String?
+  grade_level       String
+  section           String?
+  academic_year_id  String
+  academic_year     AcademicYear  @relation(fields: [academic_year_id], references: [id])
+  enrollment_date   DateTime
+  status            StudentStatus @default(ACTIVE)
+  total_fees        Decimal       @db.Decimal(18, 2) @default(0)
+  total_discounts   Decimal       @db.Decimal(18, 2) @default(0)
+  total_paid        Decimal       @db.Decimal(18, 2) @default(0)
+  total_balance     Decimal       @db.Decimal(18, 2) @default(0)
+  total_advance     Decimal       @db.Decimal(18, 2) @default(0)
+  payment_plan      Json?
+  school_id         String
+  school            School        @relation(fields: [school_id], references: [id])
+  created_at        DateTime      @default(now())
+  updated_at        DateTime      @updatedAt
+  deleted_at        DateTime?
+
+  student_invoices  StudentInvoice[]
+  payment_receipts  PaymentReceipt[]
+
+  @@unique([school_id, student_number])
+  @@map("student_accounts")
+}
+
+model StudentInvoice {
+  id                    String               @id @default(uuid())
+  invoice_number        String
+  student_account_id    String
+  student_account       StudentAccount       @relation(fields: [student_account_id], references: [id])
+  invoice_date          DateTime
+  due_date              DateTime
+  hijri_invoice_date    String?
+  academic_year_id      String
+  academic_year         AcademicYear         @relation(fields: [academic_year_id], references: [id])
+  term_id               String?
+  term                  AcademicTerm?        @relation(fields: [term_id], references: [id])
+  subtotal              Decimal              @db.Decimal(18, 2)
+  discount_amount       Decimal              @db.Decimal(18, 2) @default(0)
+  discount_type         DiscountType?
+  discount_reason_ar    String?
+  discount_reason_en    String?
+  taxable_amount        Decimal              @db.Decimal(18, 2)
+  vat_amount            Decimal              @db.Decimal(18, 2) @default(0)
+  total_amount          Decimal              @db.Decimal(18, 2)
+  amount_paid           Decimal              @db.Decimal(18, 2) @default(0)
+  balance_due           Decimal              @db.Decimal(18, 2)
+  status                InvoiceStatus        @default(DRAFT)
+  
+  // ZATCA Compliance
+  zatca_invoice_hash    String?
+  zatca_qr_code         String?
+  zatca_uuid            String?
+  zatca_submission_status ZatcaSubmissionStatus @default(PENDING)
+  zatca_clearance_status String?
+  e_invoice_xml         String?
+  
+  payment_method        PaymentMethod?
+  notes_ar              String?
+  notes_en              String?
+  journal_entry_id      String?
+  school_id             String
+  school                School               @relation(fields: [school_id], references: [id])
+  created_at            DateTime             @default(now())
+  updated_at            DateTime             @updatedAt
+
+  lines                 StudentInvoiceLine[]
+
+  @@unique([school_id, invoice_number])
+  @@map("student_invoices")
+}
+
+model StudentInvoiceLine {
+  id              String       @id @default(uuid())
+  invoice_id      String
+  invoice         StudentInvoice @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  line_number     Int
+  fee_structure_id String?
+  fee_structure   FeeStructure? @relation(fields: [fee_structure_id], references: [id])
+  description_ar  String
+  description_en  String
+  quantity        Int          @default(1)
+  unit_price      Decimal      @db.Decimal(18, 2)
+  discount_amount Decimal      @db.Decimal(18, 2) @default(0)
+  taxable_amount  Decimal      @db.Decimal(18, 2)
+  vat_rate        Decimal      @db.Decimal(5, 2) @default(15)
+  vat_amount      Decimal      @db.Decimal(18, 2)
+  total_amount    Decimal      @db.Decimal(18, 2)
+  account_id      String
+  account         ChartOfAccount @relation(fields: [account_id], references: [id])
+  cost_center_id  String?
+  created_at      DateTime     @default(now())
+  updated_at      DateTime     @updatedAt
+
+  @@map("student_invoice_lines")
+}
+
+model PaymentReceipt {
+  id                    String        @id @default(uuid())
+  receipt_number        String
+  student_account_id    String
+  student_account       StudentAccount @relation(fields: [student_account_id], references: [id])
+  receipt_date          DateTime
+  hijri_receipt_date    String?
+  total_amount          Decimal       @db.Decimal(18, 2)
+  payment_method        PaymentMethod
+  bank_account_id       String?
+  bank_account          BankAccount?  @relation(fields: [bank_account_id], references: [id])
+  cheque_number         String?
+  cheque_date           DateTime?
+  cheque_bank           String?
+  transaction_reference String?
+  sadad_bill_number     String?
+  mada_reference        String?
+  allocated_invoices    Json?
+  status                PaymentStatus @default(RECEIVED)
+  journal_entry_id      String?
+  collected_by_id       String?
+  collected_by          User?         @relation(fields: [collected_by_id], references: [id])
+  notes_ar              String?
+  notes_en              String?
+  school_id             String
+  school                School        @relation(fields: [school_id], references: [id])
+  created_at            DateTime      @default(now())
+  updated_at            DateTime      @updatedAt
+  deleted_at            DateTime?
+
+  @@unique([school_id, receipt_number])
+  @@map("payment_receipts")
+}
+
+// ============================================================================
+// ACCOUNTS PAYABLE
+// ============================================================================
+
+model Vendor {
+  id                  String       @id @default(uuid())
+  vendor_code         String
+  vendor_name_ar      String
+  vendor_name_en      String
+  vendor_type         VendorType   @default(SUPPLIER)
+  cr_number           String?
+  vat_registration_number String?
+  national_address    Json?
+  contact_person      String?
+  phone               String?
+  email               String?
+  payment_terms_days  Int          @default(30)
+  credit_limit        Decimal      @db.Decimal(18, 2) @default(0)
+  bank_details        Json?
+  default_expense_account_id String?
+  total_payable       Decimal      @db.Decimal(18, 2) @default(0)
+  is_active           Boolean      @default(true)
+  school_id           String
+  school              School       @relation(fields: [school_id], references: [id])
+  created_at          DateTime     @default(now())
+  updated_at          DateTime     @updatedAt
+
+  purchase_invoices   PurchaseInvoice[]
+  fixed_assets        FixedAsset[]
+
+  @@unique([school_id, vendor_code])
+  @@map("vendors")
+}
+
+model PurchaseOrder {
+  id              String       @id @default(uuid())
+  po_number       String
+  vendor_id       String
+  vendor          Vendor       @relation(fields: [vendor_id], references: [id])
+  order_date      DateTime
+  delivery_date   DateTime?
+  total_amount    Decimal      @db.Decimal(18, 2)
+  status          String       @default("DRAFT")
+  notes           String?
+  school_id       String
+  created_at      DateTime     @default(now())
+  updated_at      DateTime     @updatedAt
+
+  lines           PurchaseOrderLine[]
+
+  @@unique([school_id, po_number])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderLine {
+  id              String        @id @default(uuid())
+  purchase_order_id String
+  purchase_order  PurchaseOrder @relation(fields: [purchase_order_id], references: [id], onDelete: Cascade)
+  line_number     Int
+  description     String
+  quantity        Int
+  unit_price      Decimal       @db.Decimal(18, 2)
+  total_amount    Decimal       @db.Decimal(18, 2)
+  account_id      String
+  created_at      DateTime      @default(now())
+
+  @@map("purchase_order_lines")
+}
+
+model PurchaseInvoice {
+  id                      String       @id @default(uuid())
+  invoice_number          String
+  vendor_id               String
+  vendor                  Vendor       @relation(fields: [vendor_id], references: [id])
+  invoice_date            DateTime
+  due_date                DateTime
+  subtotal                Decimal      @db.Decimal(18, 2)
+  vat_amount              Decimal      @db.Decimal(18, 2) @default(0)
+  total_amount            Decimal      @db.Decimal(18, 2)
+  amount_paid             Decimal      @db.Decimal(18, 2) @default(0)
+  balance_due             Decimal      @db.Decimal(18, 2)
+  status                  String       @default("PENDING")
+  withholding_tax_amount  Decimal      @db.Decimal(18, 2) @default(0)
+  purchase_order_id       String?
+  notes                   String?
+  journal_entry_id        String?
+  school_id               String
+  created_at              DateTime     @default(now())
+  updated_at              DateTime     @updatedAt
+
+  lines                   PurchaseInvoiceLine[]
+
+  @@unique([school_id, invoice_number])
+  @@map("purchase_invoices")
+}
+
+model PurchaseInvoiceLine {
+  id                  String           @id @default(uuid())
+  invoice_id          String
+  invoice             PurchaseInvoice  @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  line_number         Int
+  description_ar      String
+  description_en      String
+  quantity            Int
+  unit_price          Decimal          @db.Decimal(18, 2)
+  discount_amount     Decimal          @db.Decimal(18, 2) @default(0)
+  taxable_amount      Decimal          @db.Decimal(18, 2)
+  vat_rate            Decimal          @db.Decimal(5, 2) @default(15)
+  vat_amount          Decimal          @db.Decimal(18, 2)
+  total_amount        Decimal          @db.Decimal(18, 2)
+  account_id          String
+  account             ChartOfAccount   @relation(fields: [account_id], references: [id])
+  cost_center_id      String?
+  created_at          DateTime         @default(now())
+
+  @@map("purchase_invoice_lines")
+}
+
+// ============================================================================
+// PAYROLL
+// ============================================================================
+
+model Employee {
+  id                    String         @id @default(uuid())
+  employee_number       String
+  name_ar               String
+  name_en               String
+  national_id           String?
+  iqama_number          String?
+  nationality           String?
+  department_id         String?
+  department            CostCenter?    @relation(fields: [department_id], references: [id])
+  position              String?
+  employment_type       EmploymentType @default(FULL_TIME)
+  hire_date             DateTime
+  contract_end_date     DateTime?
+  basic_salary          Decimal        @db.Decimal(18, 2) @default(0)
+  housing_allowance     Decimal        @db.Decimal(18, 2) @default(0)
+  transportation_allowance Decimal      @db.Decimal(18, 2) @default(0)
+  other_allowances      Json?
+  gosi_registered       Boolean        @default(false)
+  gosi_number           String?
+  bank_name             String?
+  iban                  String?
+  is_saudi              Boolean        @default(true)
+  leave_balance         Json?
+  end_of_service_accrued Decimal       @db.Decimal(18, 2) @default(0)
+  school_id             String
+  school                School         @relation(fields: [school_id], references: [id])
+  is_active             Boolean        @default(true)
+  created_at            DateTime       @default(now())
+  updated_at            DateTime       @updatedAt
+  deleted_at            DateTime?
+
+  payroll_details       PayrollDetail[]
+
+  @@unique([school_id, employee_number])
+  @@map("employees")
+}
+
+model PayrollRun {
+  id                  String              @id @default(uuid())
+  payroll_period      String              // "2024-01"
+  run_date            DateTime
+  payment_date        DateTime?
+  status              String              @default("DRAFT")
+  total_basic_salary  Decimal             @db.Decimal(18, 2) @default(0)
+  total_allowances    Decimal             @db.Decimal(18, 2) @default(0)
+  total_deductions    Decimal             @db.Decimal(18, 2) @default(0)
+  total_gosi_employee Decimal             @db.Decimal(18, 2) @default(0)
+  total_gosi_employer Decimal             @db.Decimal(18, 2) @default(0)
+  total_net_salary    Decimal             @db.Decimal(18, 2)
+  employee_count      Int                 @default(0)
+  wps_file_generated  Boolean             @default(false)
+  wps_file_url        String?
+  journal_entry_id    String?
+  approved_by_id      String?
+  approved_at         DateTime?
+  school_id           String
+  created_at          DateTime            @default(now())
+  updated_at          DateTime            @updatedAt
+
+  details             PayrollDetail[]
+
+  @@unique([school_id, payroll_period])
+  @@map("payroll_runs")
+}
+
+model PayrollDetail {
+  id                    String             @id @default(uuid())
+  payroll_run_id        String
+  payroll_run           PayrollRun         @relation(fields: [payroll_run_id], references: [id], onDelete: Cascade)
+  employee_id           String
+  employee              Employee           @relation(fields: [employee_id], references: [id])
+  basic_salary          Decimal            @db.Decimal(18, 2)
+  housing_allowance     Decimal            @db.Decimal(18, 2) @default(0)
+  transportation_allowance Decimal          @db.Decimal(18, 2) @default(0)
+  other_allowances      Decimal            @db.Decimal(18, 2) @default(0)
+  total_earnings        Decimal            @db.Decimal(18, 2)
+  gosi_employee_share   Decimal            @db.Decimal(18, 2) @default(0)
+  gosi_employer_share   Decimal            @db.Decimal(18, 2) @default(0)
+  absence_deduction     Decimal            @db.Decimal(18, 2) @default(0)
+  loan_deduction        Decimal            @db.Decimal(18, 2) @default(0)
+  other_deductions      Decimal            @db.Decimal(18, 2) @default(0)
+  total_deductions      Decimal            @db.Decimal(18, 2)
+  net_salary            Decimal            @db.Decimal(18, 2)
+  payment_status        PayrollPaymentStatus @default(PENDING)
+  payment_reference     String?
+  created_at            DateTime           @default(now())
+
+  @@map("payroll_details")
+}
+
+// ============================================================================
+// BANKING
+// ============================================================================
+
+model BankAccount {
+  id              String           @id @default(uuid())
+  account_name_ar String
+  account_name_en String
+  bank_name       String
+  branch          String?
+  account_number  String
+  iban            String?
+  swift_code      String?
+  currency_code   String           @default("SAR")
+  account_type    BankAccountType  @default(CURRENT)
+  gl_account_id   String?
+  gl_account      ChartOfAccount?  @relation(fields: [gl_account_id], references: [id])
+  opening_balance Decimal          @db.Decimal(18, 2) @default(0)
+  current_balance Decimal          @db.Decimal(18, 2) @default(0)
+  is_default      Boolean          @default(false)
+  is_active       Boolean          @default(true)
+  school_id       String
+  school          School           @relation(fields: [school_id], references: [id])
+  created_at      DateTime         @default(now())
+  updated_at      DateTime         @updatedAt
+
+  bank_transactions BankTransaction[]
+  payment_receipts  PaymentReceipt[]
+  reconciliations   BankReconciliation[]
+
+  @@map("bank_accounts")
+}
+
+model BankTransaction {
+  id                    String              @id @default(uuid())
+  bank_account_id       String
+  bank_account          BankAccount         @relation(fields: [bank_account_id], references: [id])
+  transaction_date      DateTime
+  value_date            DateTime?
+  transaction_type      TransactionType
+  reference_number      String
+  description           String?
+  debit_amount          Decimal             @db.Decimal(18, 2) @default(0)
+  credit_amount         Decimal             @db.Decimal(18, 2) @default(0)
+  running_balance       Decimal             @db.Decimal(18, 2)
+  reconciliation_status ReconciliationStatus @default(UNRECONCILED)
+  reconciliation_date   DateTime?
+  matched_journal_entry_id String?
+  import_batch_id       String?
+  created_at            DateTime            @default(now())
+
+  @@map("bank_transactions")
+}
+
+model BankReconciliation {
+  id                       String                   @id @default(uuid())
+  bank_account_id          String
+  bank_account             BankAccount              @relation(fields: [bank_account_id], references: [id])
+  reconciliation_date      DateTime
+  statement_balance        Decimal                  @db.Decimal(18, 2)
+  gl_balance               Decimal                  @db.Decimal(18, 2)
+  adjusted_statement_balance Decimal                @db.Decimal(18, 2)
+  adjusted_gl_balance      Decimal                  @db.Decimal(18, 2)
+  difference               Decimal                  @db.Decimal(18, 2)
+  status                   ReconciliationProcessStatus @default(IN_PROGRESS)
+  reconciled_by_id         String?
+  reconciled_by            User?                    @relation("ReconciledBy", fields: [reconciled_by_id], references: [id])
+  approved_by_id           String?
+  notes                    String?
+  created_at               DateTime                 @default(now())
+  updated_at               DateTime                 @updatedAt
+
+  @@map("bank_reconciliations")
+}
+
+// ============================================================================
+// BUDGET
+// ============================================================================
+
+model Budget {
+  id                 String        @id @default(uuid())
+  budget_name_ar     String
+  budget_name_en     String
+  fiscal_year_id     String
+  fiscal_year        FiscalYear    @relation(fields: [fiscal_year_id], references: [id])
+  budget_type        BudgetType    @default(ANNUAL)
+  status             BudgetStatus  @default(DRAFT)
+  total_revenue      Decimal       @db.Decimal(18, 2) @default(0)
+  total_expense      Decimal       @db.Decimal(18, 2) @default(0)
+  approved_by_id     String?
+  approved_at        DateTime?
+  school_id          String
+  school             School        @relation(fields: [school_id], references: [id])
+  created_at         DateTime      @default(now())
+  updated_at         DateTime      @updatedAt
+
+  lines              BudgetLine[]
+
+  @@map("budgets")
+}
+
+model BudgetLine {
+  id               String        @id @default(uuid())
+  budget_id        String
+  budget           Budget        @relation(fields: [budget_id], references: [id], onDelete: Cascade)
+  account_id       String
+  account          ChartOfAccount @relation(fields: [account_id], references: [id])
+  cost_center_id   String?
+  cost_center      CostCenter?   @relation(fields: [cost_center_id], references: [id])
+  annual_amount    Decimal       @db.Decimal(18, 2)
+  monthly_amounts  Json?
+  actual_amount    Decimal       @db.Decimal(18, 2) @default(0)
+  variance         Decimal       @db.Decimal(18, 2) @default(0)
+  variance_pct     Decimal       @db.Decimal(5, 2) @default(0)
+  notes            String?
+  created_at       DateTime      @default(now())
+  updated_at       DateTime      @updatedAt
+
+  @@map("budget_lines")
+}
+
+// ============================================================================
+// FIXED ASSETS
+// ============================================================================
+
+model FixedAsset {
+  id                           String             @id @default(uuid())
+  asset_code                   String
+  asset_name_ar                String
+  asset_name_en                String
+  category                     AssetCategory
+  purchase_date                DateTime
+  purchase_price               Decimal            @db.Decimal(18, 2)
+  vendor_id                    String?
+  vendor                       Vendor?            @relation(fields: [vendor_id], references: [id])
+  invoice_reference            String?
+  useful_life_years            Int
+  residual_value               Decimal            @db.Decimal(18, 2) @default(0)
+  depreciation_method          DepreciationMethod @default(STRAIGHT_LINE)
+  depreciation_rate            Decimal            @db.Decimal(5, 2)
+  accumulated_depreciation     Decimal            @db.Decimal(18, 2) @default(0)
+  net_book_value               Decimal            @db.Decimal(18, 2)
+  location                     String?
+  department_id                String?
+  department                   CostCenter?        @relation(fields: [department_id], references: [id])
+  custodian_id                 String?
+  status                       AssetStatus        @default(ACTIVE)
+  disposal_date                DateTime?
+  disposal_amount              Decimal            @db.Decimal(18, 2)?
+  disposal_method              String?
+  asset_account_id             String?
+  asset_account                ChartOfAccount?    @relation("AssetAccount", fields: [asset_account_id], references: [id])
+  depreciation_account_id      String?
+  depreciation_account         ChartOfAccount?    @relation("DepreciationAccount", fields: [depreciation_account_id], references: [id])
+  barcode                      String?
+  warranty_expiry              DateTime?
+  insurance_details            Json?
+  school_id                    String
+  school                       School             @relation(fields: [school_id], references: [id])
+  created_at                   DateTime           @default(now())
+  updated_at                   DateTime           @updatedAt
+
+  @@unique([school_id, asset_code])
+  @@map("fixed_assets")
+}
+
+// ============================================================================
+// AUDIT LOG
+// ============================================================================
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  user_id      String?
+  user         User?    @relation(fields: [user_id], references: [id])
+  action       String
+  entity_type  String
+  entity_id    String?
+  old_values   Json?
+  new_values   Json?
+  ip_address   String?
+  user_agent   String?
+  school_id    String?
+  created_at   DateTime @default(now())
+
+  @@index([entity_type, entity_id])
+  @@index([user_id])
+  @@index([created_at])
+  @@map("audit_logs")
+}
+
+// ============================================================================
+// CURRENCY EXCHANGE RATES
+// ============================================================================
+
+model ExchangeRate {
+  id          String   @id @default(uuid())
+  from_currency String String
+  to_currency   String
+  rate         Decimal  @db.Decimal(18, 6)
+  effective_date DateTime
+  created_at   DateTime @default(now())
+
+  @@unique([from_currency, to_currency, effective_date])
+  @@map("exchange_rates")
+}
+
+// ============================================================================
+// NOTIFICATIONS
+// ============================================================================
+
+model Notification {
+  id          String   @id @default(uuid())
+  user_id     String
+  title       String
+  message     String
+  type        String   @default("INFO")
+  is_read     Boolean  @default(false)
+  data        Json?
+  created_at  DateTime @default(now())
+
+  @@index([user_id, is_read])
+  @@map("notifications")
+}
+
+// ============================================================================
+// DOCUMENT ATTACHMENTS
+// ============================================================================
+
+model DocumentAttachment {
+  id           String   @id @default(uuid())
+  entity_type  String
+  entity_id    String
+  file_name    String
+  file_type    String
+  file_size    Int
+  file_url     String
+  uploaded_by  String?
+  created_at   DateTime @default(now())
+
+  @@index([entity_type, entity_id])
+  @@map("document_attachments")
+}
